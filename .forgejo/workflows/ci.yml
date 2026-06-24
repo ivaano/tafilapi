@@ -1,0 +1,54 @@
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-push:
+    runs-on: docker
+    env:
+      DOCKER_HOST: unix:///var/run/docker.sock
+
+    steps:
+      - name: Install Docker CLI
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq docker.io
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine image tag
+        id: tag
+        run: |
+          if echo "${{ github.ref }}" | grep -q "refs/tags/"; then
+            VERSION=$(echo "${{ github.ref }}" | sed 's|refs/tags/||')
+          else
+            VERSION="latest"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Login to Forgejo registry
+        run: |
+          echo "${{ secrets.REGISTRY_PASSWORD }}" | \
+          docker login git.karinova.com \
+            --username "${{ secrets.REGISTRY_USER }}" \
+            --password-stdin
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t git.karinova.com/ivan/tafilapi:${{ steps.tag.outputs.version }} \
+            -t git.karinova.com/ivan/tafilapi:latest \
+            .
+
+      - name: Push Docker image
+        run: |
+          docker push git.karinova.com/ivan/tafilapi:${{ steps.tag.outputs.version }}
+          docker push git.karinova.com/ivan/tafilapi:latest
+
+      - name: Logout from registry
+        if: always()
+        run: docker logout git.karinova.com

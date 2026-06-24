@@ -5,7 +5,28 @@ Accept: application/json
 
 ###
 
-GET http://127.0.0.1:8000/hello/User
+POST http://127.0.0.1:8000/extract
 Accept: application/json
+Content-Type: application/json
+Authorization: Bearer {{auth_token}}
 
+{
+"url": "https://camoufox.com/development/docker/",
+  "output_format": "txt",
+  "include_images": true,
+  "favor_recall": true,
+  "with_metadata": true,
+  "cloakbrowser": true
+}
 ###
+
+POST http://127.0.0.1:8000/clean
+Accept: application/json
+Content-Type: application/json
+Authorization: Bearer {{auth_token}}
+
+{
+"url": "https://camoufox.com/development/docker/",
+  "clean_level": "minimal",
+  "cloakbrowser": false
+}
