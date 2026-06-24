@@ -26,10 +26,10 @@ RUN uv sync --frozen --no-install-project --no-dev
 ENV PATH="/app/.venv/bin:$PATH"
 
 # Install Firefox system dependencies for Playwright/Camoufox
-RUN playwright install-deps firefox
+#RUN playwright install-deps firefox
 
 # Fetch the Camoufox browser binaries
-RUN python -m camoufox fetch
+#RUN python -m camoufox fetch
 
 # Copy the rest of the application code
 COPY app/ ./app/
@@ -39,7 +39,6 @@ COPY main.py ./
 EXPOSE 8000
 
 # Set environment variables (can be overridden at runtime)
-ENV API_AUTH_TOKEN="default-super-secret-token"
 ENV LOG_LEVEL="INFO"
 
 # Run the application using uvicorn

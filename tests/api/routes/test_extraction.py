@@ -100,12 +100,15 @@ def test_extract_invalid_payload_cloakbrowser_no_url(client, auth_headers):
     )
 
 
-@patch("cloakbrowser.launch")
-def test_extract_success_cloakbrowser(mock_launch, client, auth_headers):
+@patch("app.services.downloaders.sync_playwright")
+def test_extract_success_cloakbrowser(mock_sync_playwright, client, auth_headers, monkeypatch):
     """
     Test successful HTML extraction via POST with url and cloakbrowser=True.
     """
     from unittest.mock import MagicMock
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "CLOAKBROWSER_CDP_URL", "ws://localhost:9222")
 
     mock_page = MagicMock()
     mock_page.content.return_value = "<html><body><h1>Stealth Page</h1><p>Fetched with CloakBrowser integration.</p></body></html>"
@@ -114,7 +117,11 @@ def test_extract_success_cloakbrowser(mock_launch, client, auth_headers):
     mock_browser.new_page.return_value = mock_page
     mock_browser.__enter__.return_value = mock_browser
 
-    mock_launch.return_value = mock_browser
+    mock_playwright = MagicMock()
+    mock_playwright.chromium.connect_over_cdp.return_value = mock_browser
+    mock_playwright.__enter__.return_value = mock_playwright
+
+    mock_sync_playwright.return_value = mock_playwright
 
     response = client.post(
         "/extract",
@@ -128,7 +135,8 @@ def test_extract_success_cloakbrowser(mock_launch, client, auth_headers):
     assert data["url"] == "https://example.com/stealth"
     assert "Fetched with CloakBrowser integration" in data["data"]
 
-    mock_launch.assert_called_once_with(humanize=True, headless=True)
+    mock_sync_playwright.assert_called_once()
+    mock_playwright.chromium.connect_over_cdp.assert_called_once_with("ws://localhost:9222")
     mock_page.goto.assert_called_once_with("https://example.com/stealth")
     mock_page.content.assert_called_once()
 

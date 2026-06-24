@@ -9,6 +9,7 @@ def test_settings_defaults():
     assert settings.API_AUTH_TOKEN == "default-super-secret-token"
     assert settings.PROJECT_NAME == "Tafilapi HTML Extractor"
     assert settings.LOG_LEVEL == "INFO"
+    assert settings.CLOAKBROWSER_CDP_URL == ""
 
 
 def test_settings_custom_log_level(monkeypatch):
@@ -18,3 +19,12 @@ def test_settings_custom_log_level(monkeypatch):
     monkeypatch.setenv("LOG_LEVEL", "DEBUG")
     settings = Settings()
     assert settings.LOG_LEVEL == "DEBUG"
+
+
+def test_settings_custom_cloakbrowser_url(monkeypatch):
+    """
+    Test that Settings loads a custom CLOAKBROWSER_CDP_URL from environment variables.
+    """
+    monkeypatch.setenv("CLOAKBROWSER_CDP_URL", "ws://localhost:3000")
+    settings = Settings()
+    assert settings.CLOAKBROWSER_CDP_URL == "ws://localhost:3000"

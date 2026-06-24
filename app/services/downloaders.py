@@ -7,6 +7,8 @@ from app.schemas.extraction import ExtractionRequest
 from app.schemas.clean import CleanRequest
 from app.services.exceptions import ExtractionError
 
+from playwright.sync_api import sync_playwright
+
 logger = logging.getLogger(__name__)
 
 
@@ -61,23 +63,27 @@ class TrafilaturaUrlSource(HtmlSource):
 
 class CloakBrowserSource(HtmlSource):
     """
-    Strategy for fetching HTML from a URL using cloakbrowser.
+    Strategy for fetching HTML from a URL using CloakBrowser via a CDP service.
     """
     def get_html(self, request: Union[ExtractionRequest, CleanRequest]) -> str:
         if not request.url:
             raise ExtractionError("No URL provided.")
 
-        logger.info("Fetching HTML using CloakBrowser for URL: %s", request.url)
+        from app.core.config import settings
+        if not settings.CLOAKBROWSER_CDP_URL:
+            raise ExtractionError("CloakBrowser CDP service URL is not configured (CLOAKBROWSER_CDP_URL is empty).")
+
+        logger.info("Fetching HTML using CloakBrowser CDP service at %s for URL: %s", settings.CLOAKBROWSER_CDP_URL, request.url)
         try:
-            import cloakbrowser
-            with cloakbrowser.launch(humanize=True, headless=True) as browser:
-                page = browser.new_page()
-                page.goto(request.url)
-                html_content = page.content()
+            with sync_playwright() as p:
+                with p.chromium.connect_over_cdp(settings.CLOAKBROWSER_CDP_URL) as browser:
+                    page = browser.new_page()
+                    page.goto(request.url)
+                    html_content = page.content()
         except Exception as e:
-            logger.exception("CloakBrowser fetch failed for URL: %s", request.url)
-            raise ExtractionError(f"Failed to fetch HTML content using cloakbrowser: {str(e)}")
+            logger.exception("CloakBrowser CDP fetch failed for URL: %s", request.url)
+            raise ExtractionError(f"Failed to fetch HTML content using CloakBrowser CDP: {str(e)}")
 
         if html_content is None:
-            raise ExtractionError("Failed to fetch HTML content using cloakbrowser.")
+            raise ExtractionError("Failed to fetch HTML content using CloakBrowser CDP.")
         return html_content

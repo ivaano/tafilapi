@@ -76,11 +76,14 @@ def test_extract_content_unextractable_html():
     assert "unable to extract meaningful content" in res.error
 
 
-@patch("cloakbrowser.launch")
-def test_extract_content_cloakbrowser_success(mock_launch):
+@patch("app.services.downloaders.sync_playwright")
+def test_extract_content_cloakbrowser_success(mock_sync_playwright, monkeypatch):
     """
-    Test successful extraction from a URL using cloakbrowser downloader.
+    Test successful extraction from a URL using CloakBrowser downloader via CDP.
     """
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "CLOAKBROWSER_CDP_URL", "ws://localhost:9222")
+
     mock_page = MagicMock()
     mock_page.content.return_value = "<html><body><h1>Stealth Page</h1><p>Fetched with CloakBrowser.</p></body></html>"
 
@@ -88,7 +91,11 @@ def test_extract_content_cloakbrowser_success(mock_launch):
     mock_browser.new_page.return_value = mock_page
     mock_browser.__enter__.return_value = mock_browser
 
-    mock_launch.return_value = mock_browser
+    mock_playwright = MagicMock()
+    mock_playwright.chromium.connect_over_cdp.return_value = mock_browser
+    mock_playwright.__enter__.return_value = mock_playwright
+
+    mock_sync_playwright.return_value = mock_playwright
 
     req = ExtractionRequest(
         url="https://example.com/stealth", cloakbrowser=True, output_format="txt"
@@ -100,17 +107,20 @@ def test_extract_content_cloakbrowser_success(mock_launch):
     assert res.url == "https://example.com/stealth"
     assert "Fetched with CloakBrowser" in res.data
 
-    mock_launch.assert_called_once_with(humanize=True, headless=True)
+    mock_sync_playwright.assert_called_once()
+    mock_playwright.chromium.connect_over_cdp.assert_called_once_with("ws://localhost:9222")
     mock_page.goto.assert_called_once_with("https://example.com/stealth")
     mock_page.content.assert_called_once()
 
 
-@patch("cloakbrowser.launch")
-def test_extract_content_cloakbrowser_failure(mock_launch):
+@patch("app.services.downloaders.sync_playwright")
+def test_extract_content_cloakbrowser_failure(mock_sync_playwright, monkeypatch):
     """
-    Test failure handling when cloakbrowser launch or navigate throws an error.
+    Test failure handling when CloakBrowser CDP service throws an error.
     """
-    mock_launch.side_effect = Exception("Browser crashed")
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "CLOAKBROWSER_CDP_URL", "ws://localhost:9222")
+    mock_sync_playwright.side_effect = Exception("Browser crashed")
 
     req = ExtractionRequest(
         url="https://example.com/stealth-fail",
@@ -121,8 +131,27 @@ def test_extract_content_cloakbrowser_failure(mock_launch):
 
     assert res.success is False
     assert res.source == "url"
-    assert "Failed to fetch HTML content using cloakbrowser" in res.error
+    assert "Failed to fetch HTML content using CloakBrowser CDP" in res.error
     assert "Browser crashed" in res.error
+
+
+def test_extract_content_cloakbrowser_missing_url(monkeypatch):
+    """
+    Test that CloakBrowser downloader fails when CLOAKBROWSER_CDP_URL is not configured.
+    """
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "CLOAKBROWSER_CDP_URL", "")
+
+    req = ExtractionRequest(
+        url="https://example.com/stealth-fail",
+        cloakbrowser=True,
+        output_format="txt",
+    )
+    res = ExtractionService().extract_content(req)
+
+    assert res.success is False
+    assert res.source == "url"
+    assert "CDP service URL is not configured" in res.error
 
 
 def test_extract_content_with_metadata_success():

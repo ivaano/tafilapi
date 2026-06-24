@@ -7,9 +7,8 @@ dependencies = [
     "uvicorn>=0.49.0",
     "trafilatura>=2.1.0",
     "pydantic-settings>=2.14.2",
-    "cloakbrowser>=0.4.3",
-    "camoufox[geoip]>=0.4.11",
     "beautifulsoup4>=4.15.0",
+    "playwright>=1.40.0",
 ]
 
 [dependency-groups]
